@@ -1,0 +1,13 @@
+---
+
+app_db_type: "mysql"
+app_db_host: '127.0.0.1'
+app_db_port: 3306
+app_db_username: "{{ mysql_appuser_name }}"
+app_db_database: "{{ mysql_db_name }}"
+app_db_password: "{{ mysql_appuser_password }}"
+
+mysql_appuser_name: aparavi
+mysql_db_name: aparavi_app
+mysql_root_password: '{{ mysql_root_password_gen }}'
+mysql_appuser_password: '{{ mysql_appuser_password_gen }}'

@@ -1,0 +1,39 @@
+---
+
+- name: Aparavi app installation
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    connect_address: >-
+      {{ (((ansible_all_ipv4_addresses
+      | ansible.utils.ipaddr('private'))
+      + ansible_all_ipv4_addresses))
+      | difference(['172.17.0.1']) | first }}
+  pre_tasks:
+    - name: Extra | Set play-persistent generated passwords
+      ansible.builtin.set_fact:
+        mysql_root_password_gen: >-
+          {{ lookup('aparavi.public.password_generator',
+          length=22, min_digits=3, min_special_chars=3) }}
+        mysql_appuser_password_gen: >-
+          {{ lookup('aparavi.public.password_generator',
+          length=22, min_digits=3, min_special_chars=3) }}
+      tags:
+        - always
+  roles:
+    - role: aparavi.public.mysql
+      tags:
+        - mysql
+    - role: aparavi.public.app
+      tags:
+        - appagt
+  tasks:
+    - name: APP install info | MySQL passwords information
+      ansible.builtin.debug:
+        msg:
+          - "Make sure to copy your database root password now."
+          - "MySQL root password: '{{ mysql_root_password }}'"
+          - "Make sure you copied the password without the closing quotes"
+      tags:
+        - mysql

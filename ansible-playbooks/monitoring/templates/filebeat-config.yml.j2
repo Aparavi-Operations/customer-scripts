@@ -1,0 +1,214 @@
+{% macro parser_aparavi_multiline() %}
+parsers:
+  - multiline:
+      type: 'pattern'
+      pattern: '^\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (AM|PM)'
+      negate: true
+      match: 'after'
+{% endmacro %}
+
+{% macro paths_apravi_component(component) %}
+paths:
+  - '{{ aparavi_logs_dir_mask | replace("{component}", component) }}'
+  - '{{ aparavi_monitor_log_mask | replace("{component}", component) }}'
+{% endmacro %}
+
+{% macro filestream_scanner_settings() %}
+harvester_limit: 32
+  prospector.scanner.check_interval: '15s'
+  ignore_older: '24h'
+  close.on_state_change.inactive: '2m'
+{% endmacro %}
+---
+
+filebeat:
+  inputs:
+    - type: 'filestream'
+      id: 'filestream-collector'
+      enabled: true
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              service.name: 'aparavi'
+              service.component: 'collector'
+              service.subcomponent: 'app'
+        - add_locale:
+            format: 'offset'
+      {{ filestream_scanner_settings() | indent }}
+      {{ parser_aparavi_multiline() | indent }}
+      {{ paths_apravi_component('collector') | indent }}
+    - type: 'filestream'
+      id: 'filestream-aggregator'
+      enabled: true
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              service.name: 'aparavi'
+              service.component: 'aggregator'
+              service.subcomponent: 'app'
+        - add_locale:
+            format: 'offset'
+      {{ filestream_scanner_settings() | indent }}
+      {{ parser_aparavi_multiline() | indent }}
+      {{ paths_apravi_component('aggregator') | indent }}
+    - type: 'filestream'
+      id: 'filestream-appagent'
+      enabled: true
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              service.name: 'aparavi'
+              service.component: 'appagent'
+              service.subcomponent: 'app'
+        - add_locale:
+            format: 'offset'
+      {{ filestream_scanner_settings() | indent }}
+      {{ parser_aparavi_multiline() | indent }}
+      {{ paths_apravi_component('aggregator-collector') | indent }}
+    - type: 'filestream'
+      enabled: true
+      id: 'filestream-worker'
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              service.name: 'aparavi'
+              service.component: 'worker'
+              service.subcomponent: 'app'
+        - add_locale:
+            format: 'offset'
+      {{ filestream_scanner_settings() | indent }}
+      {{ parser_aparavi_multiline() | indent }}
+      {{ paths_apravi_component('worker') | indent }}
+    - type: 'filestream'
+      id: 'filestream-platform'
+      enabled: true
+      processors:
+        - add_fields:
+            target: ''
+            fields:
+              service.name: 'aparavi'
+              service.component: 'platform'
+              service.subcomponent: 'app'
+        - add_locale:
+            format: 'offset'
+      {{ filestream_scanner_settings() | indent }}
+      {{ parser_aparavi_multiline() | indent }}
+      {{ paths_apravi_component('platform') | indent }}
+    - type: 'udp'
+      enabled: true
+      host: '127.0.0.1:5140'
+      max_message_size: '32KiB'
+      fields:
+        event.provider: 'syslog'
+      fields_under_root: true
+      processors:
+        - decode_json_fields:
+            fields: ['message']
+            overwrite_keys: true
+            target: ''
+        - add_fields:
+            target: ''
+            fields:
+              service.name: '{{ ("packer" in group_names) | ternary("${SERVICE}", (service | default(""))) }}'
+              service.component: '{{ ("packer" in group_names) | ternary("${COMPONENT}", (component | default(""))) }}'
+              service.subcomponent: '{{ ("packer" in group_names) | ternary("${SUBCOMPONENT}", (subcomponent | default(""))) }}'
+        - drop_fields:
+            when:
+              equals:
+                process.pid: '-'
+            fields:
+              - 'process.pid'
+            ignore_missing: true
+    - type: 'container'
+      paths:
+        - '/var/lib/docker/containers/*/*.log'
+      enabled: true
+      ignore_older: '24h'
+      fields:
+        event.provider: 'docker'
+      fields_under_root: true
+      processors:
+        - add_docker_metadata:
+        - rename:
+            fields:
+              - from: 'container.labels.service'
+                to: 'service.name'
+              - from: 'container.labels.component'
+                to: 'service.component'
+              - from: 'container.labels.subcomponent'
+                to: 'service.subcomponent'
+              - from: 'container.labels.env'
+                to: 'service.environment'
+              - from: 'container.labels.service_instance'
+                to: 'service.instance'
+            ignore_missing: true
+            fail_on_error: false
+        - drop_fields:
+            fields:
+              - 'log.file.path'
+              - 'container.labels'
+            ignore_missing: true
+  modules:
+    - module: 'mysql'
+      error:
+        enabled: true
+        var.paths:
+{% if ansible_os_family == "Windows" %}
+          - '{{ ansible_env.ProgramData | default("") }}\MySQL\MySQL Server *\Data\*.err*'
+          - '{{ ansible_env.ProgramData | default("") }}\MySQL\MySQL Server *\Data\error.log*'
+{% else %}
+          - '/var/log/mysql/*.err*'
+          - '/var/log/mysql/error.log*'
+{% endif %}
+      slowlog:
+        enabled: true
+        var.paths:
+{% if ansible_os_family == "Windows" %}
+          - '{{ ansible_env.ProgramData | default("") }}\MySQL\MySQL Server *\Data\*-slow.log*'
+{% else %}
+          - '/var/log/mysql/*-slow.log*'
+{% endif %}
+
+processors:
+  - drop_fields:
+      fields:
+        - 'agent.ephemeral_id'
+        - 'agent.hostname'
+        - 'agent.id'
+        - 'agent.name'
+        - 'agent.type'
+        - 'agent.version'
+        - 'ecs.version'
+        - 'event.original'
+        - 'input.type'
+        - 'log.source.address'
+        - 'log.offset'
+      ignore_missing: true
+  - add_fields:
+      target: ''
+      fields:
+        service.environment: '{{ ("packer" in group_names) | ternary("${ENV}", (env | default(""))) }}'
+      when:
+        not:
+          has_fields: ['service.environment']
+  - add_fields:
+      target: ''
+      fields:
+        service.instance: '{{ ("packer" in group_names) | ternary("${SERVICE_INSTANCE}", (service_instance | default(""))) }}'
+      when:
+        not:
+          has_fields: ['service.instance']
+
+queue.spool:
+  file:
+    path: '${path.data}/spool.dat'
+    size: '50MiB'
+    page_size: '16KiB'
+  write:
+    buffer_size: '10MiB'
+    flush.timeout: '5s'
+    flush.events: 1024

@@ -1,0 +1,5 @@
+---
+collections:
+  - name: https://github.com/Aparavi-Operations/ops-ansible-public
+    type: git
+    version: master

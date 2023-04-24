@@ -1,0 +1,67 @@
+---
+
+- name: 'Deploy monitoring roles'
+  hosts: 'all'
+  gather_facts: false
+  tags:
+    - 'monitoring'
+
+  pre_tasks:
+    - name: 'Get ansible_os_family fact'
+      ansible.builtin.setup:
+        filter:
+          - 'ansible_os_family'
+      tags:
+        - 'always'
+
+    - name: 'Verify aparavi_logs_dir_mask var'
+      ansible.builtin.assert:
+        that: '"{component}" in aparavi_logs_dir_mask'
+        fail_msg: >-
+          aparavi_logs_dir_mask should contain {component} substring to be
+          replaced with actual component name like platform, agregator etc
+
+  roles:
+    - role: 'aparavi.public.atop'
+      when: 'ansible_os_family != "Windows"'
+      tags:
+        - 'atop'
+
+    - role: 'aparavi.public.beats'
+      when: 'beat_version is defined'
+      tags:
+        - 'filebeat'
+
+    - role: 'aparavi.public.vector'
+      when:
+        - 'logstash_http_user is defined'
+        - 'logstash_http_user | length > 0'
+      tags:
+        - 'vector'
+
+    - role: 'aparavi.public.filebeat-rsyslog-integration'
+      when: 'ansible_os_family != "Windows"'
+
+    - role: 'aparavi.public.prometheus-node-exporter'
+      when: 'ansible_os_family != "Windows"'
+      tags:
+        - 'prometheus_node_exporter'
+
+    - role: 'aparavi.public.prometheus-windows-exporter'
+      when: 'ansible_os_family == "Windows"'
+      tags:
+        - 'prometheus_windows_exporter'
+
+    - role: 'aparavi.public.prometheus-samba-exporter'
+      when: 'group_names | intersect (["tools_smb", "tools_fileshare"])'
+      tags:
+        - 'prometheus_samba_exporter'
+
+    - role: 'aparavi.public.prometheus-mysqld-exporter'
+      when: >-
+        ((mysql_hostname is defined) and (mysql_hostname | length > 0))
+        or
+        ((mysql_get_creds_from_aparavi_config is defined)
+        and (mysql_get_creds_from_aparavi_config | bool))
+      tags:
+        - 'prometheus_mysqld_exporter'

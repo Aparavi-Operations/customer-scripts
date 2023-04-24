@@ -1,0 +1,6 @@
+---
+
+vector_conf: '{{ lookup("template", "vector-config.yml.j2") | from_yaml }}'
+
+logstash_http_user: '{{ lookup("community.hashi_vault.hashi_vault", "secret=secret/tools/monitoring/logstash").http_input_user | default("") }}'
+logstash_http_user_password: '{{ lookup("community.hashi_vault.hashi_vault", "secret=secret/tools/monitoring/logstash").http_input_password | default("") }}'

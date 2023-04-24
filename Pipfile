@@ -1,0 +1,18 @@
+[packages]
+ansible = "==6.7.*"
+ansible-core = "==2.13.7"
+ansible-modules-hashivault = "*"
+ansible-lint = "<6.10"
+bcrypt = "*"
+hvac = "*"
+boto3 = "*"
+hcloud = "==1.18.1"
+jinja-cli = "*"
+netaddr = "*"
+# Mitogen is not compatible with ansible 2.13 yet
+# mitogen = "==0.3.3"
+pywinrm = "*"
+pymysql = "*"
+
+[requires]
+python_version = "3"
