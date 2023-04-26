@@ -8,7 +8,8 @@ $0 -n "platform" -c "client_name" [additional_options]
 Required options:
     -n Node profile for deploying. Default: "default"
        mysql                             - MySQL server
-       appagt                            - MySQL server + Aparavi Platform
+       appagtbundle                      - MySQL server + Aparavi AppAgent
+       appagt                            - Aparavi AppAgent
 
     -c Client name. Example "Aparavi"
 
@@ -21,13 +22,16 @@ mysql specific options:
 
 additional options:
     -v Verbose level (0..5). Default: "0"
-    -u Aparavi app download url. Default: "https://aparavi.jfrog.io/artifactory/aparavi-installers-public/linux-installer-latest.run"
+    -u Aparavi app download url. Default: 2.6.0-7315 version now.
+    -d Aparavi app download package checksum digest. Default: sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc
 EOH
 }
 
-DOWNLOAD_URL="https://aparavi.jfrog.io/artifactory/aparavi-installers-public/linux-installer-latest.run"
+DOWNLOAD_URL="https://updates.aparavi.com/updates-dia-aparavi/production/install-aparavi-data-ia-2.6.0-7315.run"
+DOWNLOAD_DIGEST="sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc"
+MYSQL_APPUSER_PASSWORD_STRING=""
 
-while getopts ":a:c:o:p:m:v:n:u:" options; do
+while getopts ":a:c:o:p:m:v:n:u:d:" options; do
     case "${options}" in
         a)
             APARAVI_PLATFORM_BIND_ADDR=${OPTARG}
@@ -37,6 +41,9 @@ while getopts ":a:c:o:p:m:v:n:u:" options; do
             ;;
         o)
             APARAVI_PARENT_OBJECT_ID=${OPTARG}
+            ;;
+        p)
+            MYSQL_APPUSER_PASSWORD_STRING="mysql_appuser_password='${OPTARG}'"
             ;;
         m)
             MYSQL_APPUSER_NAME=${OPTARG}
@@ -49,6 +56,9 @@ while getopts ":a:c:o:p:m:v:n:u:" options; do
             ;;
         u)
             DOWNLOAD_URL=${OPTARG}
+            ;;
+        d)
+            DOWNLOAD_DIGEST=${OPTARG}
             ;;
         :)  # If expected argument omitted:
             echo "Error: -${OPTARG} requires an argument."
@@ -72,16 +82,8 @@ fi
 }
 
 function check_o_switch {
-if [[ -z "$NODE_PROFILE" ]]; then
-    echo "Error: Option '-n' is required."
-    usage
-    exit 1
-fi
-}
-
-function check_a_switch {
-if [[ -z "$APARAVI_PLATFORM_BIND_ADDR" ]]; then
-    echo "Error: Option '-a' is required."
+if [[ -z "$APARAVI_PARENT_OBJECT_ID" ]]; then
+    echo "Error: Option '-o' is required."
     usage
     exit 1
 fi
@@ -90,17 +92,22 @@ fi
 ###### end of required switches checking ######
 ###### Node profile dictionary ######
 case "${NODE_PROFILE:=default}" in
-    appagt)
-        check_a_switch
+    appagtbundle)
+        check_o_switch
         APP_TYPE="appagt"
         NODE_ANSIBLE_TAGS="-t mysql,appagt"
+        ;;
+    appagt)
+        check_o_switch
+        APP_TYPE="appagt"
+        NODE_ANSIBLE_TAGS="-t appagt"
         ;;
     mysql)
         APP_TYPE="mysql"
         NODE_ANSIBLE_TAGS="-t mysql"
         ;;
     *)
-    echo "Error: please provide node profile (\"-n\" switch) from the list: mysql, appagt"
+    echo "Error: please provide node profile (\"-n\" switch) from the list: mysql, appagt, appagtbundle"
         usage
         exit 1
         ;;
@@ -123,11 +130,13 @@ fi
 
 ###### run ansible ######
 ANSIBLE_VERBOSITY=${VERBOSE_LEVEL:-0} \
-pipenv run ansible-playbook --connection=local playbooks/app/main.yml \
+pipenv run ansible-playbook --connection=local ansible-playbooks/app/main.yml \
     -i 127.0.0.1, \
     $NODE_ANSIBLE_TAGS \
     --extra-vars    "mysql_appuser_name=${MYSQL_APPUSER_NAME:-aparavi_app} \
                     app_type=${APP_TYPE} \
                     app_platform_bind_addr=${APARAVI_PLATFORM_BIND_ADDR:-preview.aparavi.com} \
                     app_package_url=${DOWNLOAD_URL} \
-                    app_parent_object=${APARAVI_PARENT_OBJECT_ID:-non_needed_dummy}"
+                    app_package_checksum=${DOWNLOAD_DIGEST} \
+                    app_parent_object=${APARAVI_PARENT_OBJECT_ID:-non_needed_dummy} \
+                    ${MYSQL_APPUSER_PASSWORD_STRING}"
