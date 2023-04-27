@@ -1,0 +1,162 @@
+---
+
+{% macro source_log_basic_settinngs() %}
+type: 'file'
+glob_minimum_cooldown_ms: 5000
+ignore_older_secs: 86400
+read_from: 'end'
+file_key: 'log.origin.file.name'
+{% endmacro %}
+
+{% macro source_for_component(component, dir=component) %}
+s_logs_aparavi_{{component}}:
+  type: 'file'
+  glob_minimum_cooldown_ms: 5000
+  ignore_older_secs: 86400
+  read_from: 'beginning'
+  file_key: 'log.origin.file.name'
+  include:
+    - '{{ aparavi_logs_dir_mask | replace("{component}", component) }}'
+    - '{{ aparavi_monitor_log_mask | replace("{component}", component) }}'
+  multiline:
+    mode: 'halt_before'
+    start_pattern: '^\d{1,2}/\d{1,2}/\d{4}, \d{1,2}:\d{2}:\d{2} (AM|PM)'
+    condition_pattern: '^\d{1,2}/\d{1,2}/\d{4}, \d{1,2}:\d{2}:\d{2} (AM|PM)'
+    timeout_ms: 1000
+{% endmacro %}
+
+{% macro transform_for_component(component) %}
+t_logs_aparavi_{{ component }}:
+  type: 'remap'
+  inputs: ['s_logs_aparavi_{{ component }}']
+  source: |-
+    .service.name = "aparavi"
+    .service.component = "{{ component }}"
+    .service.subcomponent = "app"
+
+    # Aparavi logs don't contain timezone information in date/time field.
+    # Parse timestamp, local time zone will be used
+    m, err = parse_regex(.message, r'^(?P<date>\d+/\d+/\d+), (?P<time>\d+:\d+:\d+ (AM|PM)) (?P<message>.*)$')
+    if err == null {
+      timestr, err = m.date + " " + m.time
+      .@timestamp, err = parse_timestamp(timestr, "%m/%d/%Y %I:%M:%S %p")
+      .message = m.message
+    }
+{% endmacro %}
+
+data_dir: '{{ vector_data_dir }}'
+
+log_schema:
+  host_key: 'host.name'
+  timestamp_key: '@timestamp'
+  source_type_key: ''
+
+sources:
+  s_internal_logs:
+    type: 'internal_logs'
+{% if ansible_os_family != "Windows" %}
+  s_rsyslog:
+    type: 'socket'
+    address: '127.0.0.1:5140'
+    mode: 'udp'
+{% endif %}
+  s_logs_mysql_err:
+    {{ source_log_basic_settinngs() | indent }}
+    include:
+{% if ansible_os_family == "Windows" %}
+      - '{{ ansible_env.ProgramData | default("") }}\MySQL\MySQL Server *\Data\*.err*'
+      - '{{ ansible_env.ProgramData | default("") }}\MySQL\MySQL Server *\Data\error.log*'
+{% else %}
+      - '/var/log/mysql/*.err*'
+      - '/var/log/mysql/error.log*'
+{% endif %}
+  s_logs_mysql_slow:
+    {{ source_log_basic_settinngs() | indent }}
+    include:
+{% if ansible_os_family == "Windows" %}
+      - '{{ ansible_env.ProgramData | default("") }}\MySQL\MySQL Server *\Data\*-slow.log*'
+{% else %}
+      - '/var/log/mysql/*-slow.log*'
+{% endif %}
+  {{ source_for_component('platform') | indent }}
+  {{ source_for_component('collector') | indent }}
+  {{ source_for_component('aggregator') | indent }}
+  {{ source_for_component('appagent', 'aggregator-collector') | indent }}
+  {{ source_for_component('worker') | indent }}
+
+transforms:
+{% if ansible_os_family != "Windows" %}
+  t_rsyslog:
+    type: 'remap'
+    inputs: ['s_rsyslog']
+    drop_on_abort: true
+    source: |-
+      . = parse_json!(.message)
+      if ."process.name" == "vector" {
+        abort
+      }
+      if ."process.pid" == "-" {
+        del(."process.pid")
+      }
+      .event.provider = "syslog"
+      ."host.name" = get_hostname!()
+{% endif %}
+  t_logs_myql_err:
+    type: 'remap'
+    inputs: ['s_logs_mysql_err']
+    source: |-
+      .event.module = "mysql"
+      .event.dataset = "mysql.error"
+  t_logs_mysql_slow:
+    type: 'remap'
+    inputs: ['s_logs_mysql_slow']
+    source: |-
+      .event.module = "mysql"
+      .event.dataset = "mysql.slow"
+
+  {{ transform_for_component('platform') | indent }}
+  {{ transform_for_component('collector') | indent }}
+  {{ transform_for_component('aggregator') | indent }}
+  {{ transform_for_component('appagent') | indent }}
+  {{ transform_for_component('worker') | indent }}
+
+  t_all:
+    type: 'remap'
+    inputs:
+{% if ansible_os_family != "Windows" %}
+      - 't_rsyslog'
+{% endif %}
+      - 't_logs_*'
+    source: |-
+      if !exists(.service.environment) {
+        .service.environment = "{{ ("packer" in group_names) | ternary("${ENV}", (env | default(""))) }}"
+      }
+      if !exists(.service.instance) {
+        .service.instance = "{{ ("packer" in group_names) | ternary("${SERVICE_INSTANCE}", (service_instance | default(""))) }}"
+      }
+      if !exists(.service.component) {
+        .service.component = "{{ ("packer" in group_names) | ternary("${COMPONENT}", (component | default(""))) }}"
+      }
+      if !exists(.service.subcomponent) {
+        .service.subcomponent = "{{ ("packer" in group_names) | ternary("${SUBCOMPONENT}", (subcomponent | default(""))) }}"
+      }
+
+sinks:
+  logstash_http:
+    type: 'http'
+    inputs: ['t_all']
+    uri: 'https://{{ logstash_address }}'
+    auth:
+      strategy: 'basic'
+      user: '{{ logstash_http_user }}'
+      password: '{{ logstash_http_user_password }}'
+    encoding:
+      codec: 'json'
+    batch:
+      max_events: 30
+      timeout_secs: 5
+  console:
+    type: 'console'
+    encoding:
+      codec: 'json'
+    inputs: ['s_internal_logs']

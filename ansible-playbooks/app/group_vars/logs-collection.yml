@@ -1,0 +1,32 @@
+---
+
+beat: 'filebeat'
+
+beat_conf: '{{ lookup("template", "filebeat-config.yml.j2") | from_yaml }}'
+
+beat_output_conf:
+  logstash:
+    timeout: 5
+    hosts:
+      - '{{ logstash_address }}:5044'
+    ssl:
+      enabled: true
+      verification_mode: 'strict'
+
+beat_logging_conf:
+  level: 'info'
+  to_files: true
+  files:
+    name: 'filebeat'
+    keepfiles: 3
+    rotateeverybytes: 20000000
+
+# {component} will be replaced for platform, appagent etc
+aparavi_logs_dir_mask: '{{
+  ((ansible_env.ProgramData | default("")) + "\aparavi*\{component}\logs\*") if ansible_os_family == "Windows"
+  else ("/var/log/aparavi*/{component}/*")
+  }}'
+aparavi_monitor_log_mask: '{{
+  ((ansible_env.ProgramFiles | default("")) + "\aparavi*\{component}\monitor.log*") if ansible_os_family == "Windows"
+  else ("/opt/aparavi*/{component}/monitor.log*")
+  }}'
