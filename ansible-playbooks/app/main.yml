@@ -34,7 +34,7 @@
     - role: aparavi.public.prometheus_node_exporter
       tags:
         - prometheus_node_exporter
-    - role: aparavi.public.prometheus-mysqld-exporter
+    - role: aparavi.public.prometheus_mysqld_exporter
       tags:
         - prometheus_mysqld_exporter
   tasks:
