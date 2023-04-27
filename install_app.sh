@@ -23,6 +23,8 @@ mysql specific options:
     -p Mysql password. Default: random generated.
 
 additional options:
+    -e Monitoring env. Default: "demo"
+    -l Logstash address. Default: "logstash-hz.paas.aparavi.com"
     -v Verbose level (0..5). Default: "0"
     -u Aparavi app download url. Default: 2.6.0-7315 version now.
     -d Aparavi app download package checksum digest. Default: sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc
@@ -33,7 +35,7 @@ DOWNLOAD_URL="https://updates.aparavi.com/updates-dia-aparavi/production/install
 DOWNLOAD_DIGEST="sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc"
 MYSQL_OPTIONS=""
 
-while getopts ":a:c:o:p:m:h:v:n:u:d:" options; do
+while getopts ":a:c:o:p:m:h:v:n:u:d:l:e:" options; do
     case "${options}" in
         a)
             APARAVI_PLATFORM_BIND_ADDR=${OPTARG}
@@ -64,6 +66,12 @@ while getopts ":a:c:o:p:m:h:v:n:u:d:" options; do
             ;;
         d)
             DOWNLOAD_DIGEST=${OPTARG}
+            ;;
+        l)
+            LOGSTASH_ADDRESS=${OPTARG}
+            ;;
+        e)
+            ENV=${OPTARG}
             ;;
         :)  # If expected argument omitted:
             echo "Error: -${OPTARG} requires an argument."
@@ -99,13 +107,15 @@ fi
 case "${NODE_PROFILE:=default}" in
     appagtbundle)
         check_o_switch
+        check_c_switch
         APP_TYPE="appagt"
         NODE_ANSIBLE_TAGS="-t mysql,appagt"
         ;;
     appagt)
         check_o_switch
+        check_c_switch
         APP_TYPE="appagt"
-        NODE_ANSIBLE_TAGS="-t appagt"
+        NODE_ANSIBLE_TAGS="-t appagt,filebeat,prometheus_node_exporter,prometheus_mysqld_exporter"
         ;;
     mysql)
         APP_TYPE="mysql"
@@ -143,5 +153,8 @@ pipenv run ansible-playbook --connection=local ansible-playbooks/app/main.yml \
                     app_platform_bind_addr=${APARAVI_PLATFORM_BIND_ADDR:-preview.aparavi.com} \
                     app_package_url=${DOWNLOAD_URL} \
                     app_package_checksum=${DOWNLOAD_DIGEST} \
-                    app_parent_object=${APARAVI_PARENT_OBJECT_ID:-non_needed_dummy} \
+                    app_parent_object=${APARAVI_PARENT_OBJECT_ID:-dummy} \
+                    logstash_address=${LOGSTASH_ADDRESS:-logstash-hz.paas.aparavi.com} \
+                    service_instance=${SERVICE_INSTANCE:-dummy} \
+                    env=${ENV:-demo} \
                     ${MYSQL_OPTIONS}"

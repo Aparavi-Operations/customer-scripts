@@ -28,6 +28,15 @@
     - role: aparavi.public.app
       tags:
         - appagt
+    - role: aparavi.public.beats
+      tags:
+        - filebeat
+    - role: aparavi.public.prometheus_node_exporter
+      tags:
+        - prometheus_node_exporter
+    - role: aparavi.public.prometheus-mysqld-exporter
+      tags:
+        - prometheus_mysqld_exporter
   tasks:
     - name: APP install info | MySQL passwords information
       ansible.builtin.debug:
