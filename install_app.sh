@@ -154,7 +154,7 @@ pipenv run ansible-playbook --connection=local ansible-playbooks/app/main.yml \
                     app_package_url=${DOWNLOAD_URL} \
                     app_package_checksum=${DOWNLOAD_DIGEST} \
                     app_parent_object=${APARAVI_PARENT_OBJECT_ID:-dummy} \
-                    logstash_address=${LOGSTASH_ADDRESS:-logstash-hz.paas.aparavi.com} \
+                    logstash_address=${LOGSTASH_ADDRESS:-logstash-ext.prod.aparavi.com} \
                     service_instance=${SERVICE_INSTANCE:-dummy} \
                     env=${ENV:-demo} \
                     ${MYSQL_OPTIONS}"

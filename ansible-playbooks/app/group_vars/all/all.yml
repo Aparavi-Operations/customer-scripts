@@ -12,9 +12,11 @@ mysql_db_name: aparavi_app
 mysql_root_password: '{{ mysql_root_password_gen }}'
 mysql_appuser_password: '{{ mysql_appuser_password_gen }}'
 
+mysql_hostname: '{{ app_db_host }}'
+mysql_password: '{{ mysql_appuser_password }}'
+mysql_username: '{{ mysql_appuser_name }}'
 
 beat_version: '7.17.9'
 service: 'aparavi'
 subcomponent: 'app'
 component: '{{ app_type }}'
-mysql_get_creds_from_aparavi_config: true

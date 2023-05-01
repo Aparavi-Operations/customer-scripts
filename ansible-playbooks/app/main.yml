@@ -31,6 +31,9 @@
     - role: aparavi.public.beats
       tags:
         - filebeat
+    - role: aparavi.public.filebeat-rsyslog-integration
+      tags:
+        - filebeat
     - role: aparavi.public.prometheus_node_exporter
       tags:
         - prometheus_node_exporter
