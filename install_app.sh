@@ -24,7 +24,7 @@ mysql specific options:
 
 additional options:
     -e Monitoring env. Default: "demo"
-    -l Logstash address. Default: "logstash-hz.paas.aparavi.com"
+    -l Logstash address. Default: "logstash-ext.prod.aparavi.com"
     -v Verbose level (0..5). Default: "0"
     -u Aparavi app download url. Default: 2.6.0-7315 version now.
     -d Aparavi app download package checksum digest. Default: sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc
