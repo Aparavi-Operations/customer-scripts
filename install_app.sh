@@ -25,6 +25,7 @@ mysql specific options:
 additional options:
     -e Monitoring env. Default: "demo"
     -l Logstash address. Default: "logstash-ext.prod.aparavi.com"
+    -w vmagent metrics shipping endpoint. Default: "https://vm-ext.prod.aparavi.com/insert/0/prometheus/api/v1/write"
     -v Verbose level (0..5). Default: "0"
     -u Aparavi app download url. Default: 2.6.0-7315 version now.
     -d Aparavi app download package checksum digest. Default: sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc
@@ -35,7 +36,7 @@ DOWNLOAD_URL="https://updates.aparavi.com/updates-dia-aparavi/production/install
 DOWNLOAD_DIGEST="sha256:4c9074f3c7c9af80a95c00616dacdff87194655da2c224de28bd9ba5cf302ddc"
 MYSQL_OPTIONS=""
 
-while getopts ":a:c:o:p:m:h:v:n:u:d:l:e:" options; do
+while getopts ":a:c:o:p:m:h:v:n:u:d:l:e:w:" options; do
     case "${options}" in
         a)
             APARAVI_PLATFORM_BIND_ADDR=${OPTARG}
@@ -69,6 +70,9 @@ while getopts ":a:c:o:p:m:h:v:n:u:d:l:e:" options; do
             ;;
         l)
             LOGSTASH_ADDRESS=${OPTARG}
+            ;;
+        w)
+            VMAGENT_ENDPOINT=${OPTARG}
             ;;
         e)
             ENV=${OPTARG}
@@ -115,7 +119,7 @@ case "${NODE_PROFILE:=default}" in
         check_o_switch
         check_c_switch
         APP_TYPE="appagt"
-        NODE_ANSIBLE_TAGS="-t appagt,filebeat,prometheus_node_exporter,prometheus_mysqld_exporter"
+        NODE_ANSIBLE_TAGS="-t appagt,filebeat,prometheus_node_exporter,prometheus_mysqld_exporter,vmagent"
         ;;
     mysql)
         APP_TYPE="mysql"
@@ -155,6 +159,7 @@ pipenv run ansible-playbook --connection=local ansible-playbooks/app/main.yml \
                     app_package_checksum=${DOWNLOAD_DIGEST} \
                     app_parent_object=${APARAVI_PARENT_OBJECT_ID:-dummy} \
                     logstash_address=${LOGSTASH_ADDRESS:-logstash-ext.prod.aparavi.com} \
+                    vmagent_endpoint=${VMAGENT_ENDPOINT:-https://vm-ext.prod.aparavi.com/insert/0/prometheus/api/v1/write} \
                     service_instance=${SERVICE_INSTANCE:-dummy} \
                     env=${ENV:-demo} \
                     ${MYSQL_OPTIONS}"

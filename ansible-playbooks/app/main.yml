@@ -40,6 +40,9 @@
     - role: aparavi.public.prometheus_mysqld_exporter
       tags:
         - prometheus_mysqld_exporter
+    - role: aparavi.public.vmagent
+      tags:
+        - vmagent
   tasks:
     - name: APP install info | MySQL passwords information
       ansible.builtin.debug:
