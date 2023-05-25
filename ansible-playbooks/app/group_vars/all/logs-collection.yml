@@ -3,14 +3,16 @@
 vmagent_remote_write_url: '{{ vmagent_endpoint }}'
 vmagent_config_global_labels:
   env: '{{ env }}'
-  service: '{{ service }}'
-  component: '{{ app_type }}'
   service_instance: '{{ service_instance }}'
 vmagent_auto_configure: true
 vmagent_auto_configure_labels:
   node_exporter:
+    service: '{{ service }}'
+    component: '{{ app_type }}'
     subcomponent: 'app'
   mysqld_exporter:
+    service: '{{ service }}'
+    component: '{{ app_type }}'
     subcomponent: 'db'
 
 beat: 'filebeat'
