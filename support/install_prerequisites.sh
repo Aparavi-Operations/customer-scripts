@@ -24,7 +24,7 @@ if ! command -v pipenv >/dev/null; then
 fi
 
 ###### Install Pipenv ######
-pipenv install --skip-lock
+pipenv install
 
 ###### Install public collection ######
 pipenv run ansible-galaxy collection install -r requirements.yml
