@@ -1,0 +1,37 @@
+[Unit]
+Description=VictoriaMetrics Agent
+After=network.target
+
+[Service]
+Type=simple
+SyslogIdentifier=vmagent
+User=vmagent
+Group=vmagent
+
+StartLimitBurst=5
+StartLimitInterval=0
+Restart=on-failure
+RestartSec=5
+
+LimitNOFILE=62000
+LimitNPROC=62000
+
+ExecStart=/usr/local/bin/vmagent-prod -envflag.enable -envflag.prefix=vm_
+ExecStop=/bin/kill -s SIGTERM $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
+
+Environment="vm_promscrape_config=/etc/vm/vmagent/vmagent.yml"
+Environment="vm_remoteWrite_url=${VM_ENDPOINT}"
+Environment="vm_remoteWrite_tmpDataPath=/var/tmp/vmagent-remote-tmp"
+Environment="vm_remoteWrite.flushInterval=15s"
+Environment="vm_memory.allowedBytes=10MiB"
+
+PrivateTmp=yes
+ProtectHome=yes
+NoNewPrivileges=yes
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=yes
+
+[Install]
+WantedBy=multi-user.target

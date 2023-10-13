@@ -1,0 +1,22 @@
+[Unit]
+Description=Prometheus Node Exporter
+After=network.target
+
+[Service]
+Type=simple
+User=node-exp
+Group=node-exp
+Nice=-5
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.systemd \
+    --collector.systemd.unit-exclude=^((.+\.socket)|((acpid|apt-|atd|atop|basic|blk-|blockdev|dev-|dbus|console-|cloud-|crypt|dm-|e2scrub_|first-boot|graphical|getty|kmod|man-db|modprobe|multi-user|network|nss|serial|shutdown|swap|rpc|systemd-|snap|lvm2|user|umount).*))$ \
+    --collector.filesystem \
+    --collector.filesystem.ignored-fs-types=^(sys|proc|auto|rpc_pipe|tmp)fs$ \
+    --collector.filesystem.ignored-mount-points=^/(sys|proc|dev|boot)($|/) \
+    --web.listen-address=0.0.0.0:9100
+
+SyslogIdentifier=node_exporter
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
